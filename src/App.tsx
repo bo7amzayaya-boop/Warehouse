@@ -48,7 +48,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { Search } from 'lucide-react';
+import { Search, WifiOff } from 'lucide-react';
 
 export function App() {
   const { currentUser, authLoading } = useAuth();
@@ -56,6 +56,20 @@ export function App() {
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Firestore Realtime Collections
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -190,6 +204,14 @@ export function App() {
           onNavigateTab={setActiveTab}
           onQuickSearchClick={() => setShowQuickSearchModal(true)}
         />
+
+        {/* Offline Connection Alert */}
+        {!isOnline && (
+          <div className="bg-amber-500 text-white px-4 py-2 text-center text-xs font-bold flex items-center justify-center gap-2 shadow-sm animate-pulse shrink-0">
+            <WifiOff className="w-4 h-4 shrink-0" />
+            <span>لا يوجد اتصال بالإنترنت</span>
+          </div>
+        )}
 
         {/* View Component Switcher */}
         <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto space-y-6">

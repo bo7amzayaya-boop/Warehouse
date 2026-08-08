@@ -201,3 +201,19 @@ export interface PurchaseRequisition {
   createdAt: string;
   dateStr: string;
 }
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      isElectron: boolean;
+      print: () => Promise<boolean>;
+      saveFile: (
+        data: ArrayBuffer | string,
+        defaultName: string,
+        extension: string
+      ) => Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
+      getAppVersion: () => Promise<string>;
+    };
+  }
+}
+
