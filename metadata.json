@@ -1,0 +1,6 @@
+{
+  "name": "KHAYAL Warehouse Management System",
+  "description": "نظام إدارة مستودع الخيال للطباعة والإعلان الشامل والذكي",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

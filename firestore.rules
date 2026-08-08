@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        getUserData().role == 'super_admin' ||
+        request.auth.token.email == 'bo7amzayaya@gmail.com'
+      );
+    }
+
+    function isManager() {
+      return isSignedIn() && (
+        getUserData().role == 'warehouse_manager' ||
+        isSuperAdmin()
+      );
+    }
+
+    function isEmployee() {
+      return isSignedIn() && (
+        getUserData().role == 'employee' ||
+        isManager()
+      );
+    }
+
+    function isAnyUser() {
+      return isSignedIn();
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      // Super admin can read/write any user document. Users can read their own document.
+      allow read: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin() || isManager());
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // Materials Collection
+    match /materials/{materialId} {
+      allow read: if isAnyUser();
+      allow create, update: if isManager() || isEmployee(); // Employee can update quantity during withdrawal
+      allow delete: if isSuperAdmin();
+    }
+
+    // Categories Collection
+    match /categories/{categoryId} {
+      allow read: if isAnyUser();
+      allow create, update, delete: if isManager();
+    }
+
+    // Units Collection
+    match /units/{unitId} {
+      allow read: if isAnyUser();
+      allow create, update, delete: if isManager();
+    }
+
+    // Suppliers Collection
+    match /suppliers/{supplierId} {
+      allow read: if isAnyUser();
+      allow create, update, delete: if isManager();
+    }
+
+    // Customers Collection
+    match /customers/{customerId} {
+      allow read: if isAnyUser();
+      allow create, update, delete: if isManager();
+    }
+
+    // Projects Collection
+    match /projects/{projectId} {
+      allow read: if isAnyUser();
+      allow create, update, delete: if isManager();
+    }
+
+    // Movements Collection (Stock In, Out, Adjustments, Transfers)
+    match /movements/{movementId} {
+      allow read: if isAnyUser();
+      allow create: if isEmployee(); // Employees can create withdrawals
+      allow update: if isManager();
+      allow delete: if isSuperAdmin();
+    }
+
+    // Notifications Collection
+    match /notifications/{notifId} {
+      allow read: if isAnyUser();
+      allow create, update, delete: if isEmployee();
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read: if isAnyUser();
+      allow write: if isSuperAdmin();
+    }
+
+    // Audit Logs Collection
+    match /audit_logs/{logId} {
+      allow read: if isManager();
+      allow create: if isAnyUser();
+      allow update, delete: if false; // Audit logs are immutable
+    }
+  }
+}

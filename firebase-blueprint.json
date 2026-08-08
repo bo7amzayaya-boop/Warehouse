@@ -1,0 +1,245 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role and department details",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "fullName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string", "maxLength": 20 },
+        "role": { "type": "string", "enum": ["super_admin", "warehouse_manager", "employee", "viewer"] },
+        "department": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["active", "disabled"] },
+        "photoURL": { "type": "string" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string" },
+        "lastLogin": { "type": "string" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["uid", "fullName", "email", "role", "status"]
+    },
+    "Category": {
+      "title": "Material Category",
+      "description": "Category for classification of printing and advertising materials",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 20 },
+        "nameAr": { "type": "string", "maxLength": 100 },
+        "nameEn": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["nameAr"]
+    },
+    "Unit": {
+      "title": "Measurement Unit",
+      "description": "Measurement unit for materials e.g. Meter, Roll, Piece, Sheet",
+      "type": "object",
+      "properties": {
+        "nameAr": { "type": "string", "maxLength": 50 },
+        "nameEn": { "type": "string", "maxLength": 50 },
+        "symbol": { "type": "string", "maxLength": 10 }
+      },
+      "required": ["nameAr"]
+    },
+    "Material": {
+      "title": "Inventory Material",
+      "description": "Printing and advertising raw material stock item",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 50 },
+        "barcode": { "type": "string", "maxLength": 50 },
+        "nameAr": { "type": "string", "maxLength": 150 },
+        "nameEn": { "type": "string", "maxLength": 150 },
+        "categoryId": { "type": "string" },
+        "categoryName": { "type": "string" },
+        "unit": { "type": "string" },
+        "currentQuantity": { "type": "number" },
+        "minQuantity": { "type": "number" },
+        "maxQuantity": { "type": "number" },
+        "avgCost": { "type": "number" },
+        "purchasePrice": { "type": "number" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "location": { "type": "string" },
+        "rackNumber": { "type": "string" },
+        "description": { "type": "string", "maxLength": 500 },
+        "image": { "type": "string" },
+        "status": { "type": "string", "enum": ["in_stock", "low_stock", "out_of_stock"] },
+        "isFavorite": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["code", "nameAr", "categoryId", "unit", "currentQuantity"]
+    },
+    "Supplier": {
+      "title": "Supplier Information",
+      "description": "Material vendor details",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string" },
+        "address": { "type": "string", "maxLength": 200 },
+        "contactPerson": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["name"]
+    },
+    "Customer": {
+      "title": "Customer Profile",
+      "description": "Client details for projects",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string" },
+        "address": { "type": "string", "maxLength": 200 },
+        "company": { "type": "string", "maxLength": 100 },
+        "notes": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["name"]
+    },
+    "Project": {
+      "title": "Printing & Advertising Project",
+      "description": "Project associated with material consumption",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150 },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "startDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["planned", "in_progress", "completed", "cancelled"] },
+        "manager": { "type": "string" },
+        "description": { "type": "string", "maxLength": 500 },
+        "totalCost": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "status"]
+    },
+    "Movement": {
+      "title": "Stock Movement Log",
+      "description": "Complete audit document for all stock activities",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["incoming", "withdrawal", "adjustment", "transfer"] },
+        "materialId": { "type": "string" },
+        "materialName": { "type": "string" },
+        "materialCode": { "type": "string" },
+        "quantity": { "type": "number" },
+        "beforeQuantity": { "type": "number" },
+        "afterQuantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "projectId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "department": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "reason": { "type": "string" },
+        "notes": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "dateStr": { "type": "string" }
+      },
+      "required": ["type", "materialId", "quantity", "beforeQuantity", "afterQuantity", "userId"]
+    },
+    "AuditLog": {
+      "title": "System Audit Log",
+      "description": "Log of every user activity in the system",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "dateStr": { "type": "string" },
+        "device": { "type": "string" },
+        "ip": { "type": "string" }
+      },
+      "required": ["userId", "action", "timestamp"]
+    },
+    "Notification": {
+      "title": "System Notification",
+      "description": "Alert or message regarding stock levels or operations",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["low_stock", "out_of_stock", "large_withdrawal", "new_purchase", "system"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "materialId": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "message", "type"]
+    },
+    "Settings": {
+      "title": "Company & App Settings",
+      "description": "Global configuration parameters",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "defaultCurrency": { "type": "string" },
+        "defaultUnit": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile collection"
+    },
+    "/materials/{materialId}": {
+      "schema": { "$ref": "#/entities/Material" },
+      "description": "Materials inventory list"
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Material category definitions"
+    },
+    "/units/{unitId}": {
+      "schema": { "$ref": "#/entities/Unit" },
+      "description": "Measurement units"
+    },
+    "/suppliers/{supplierId}": {
+      "schema": { "$ref": "#/entities/Supplier" },
+      "description": "Suppliers database"
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Customers database"
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "Printing and advertising projects"
+    },
+    "/movements/{movementId}": {
+      "schema": { "$ref": "#/entities/Movement" },
+      "description": "Stock movement audit records"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "System activity logs"
+    },
+    "/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "In-app notifications"
+    },
+    "/settings/global": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Global settings document"
+    }
+  }
+}
