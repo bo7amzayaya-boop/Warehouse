@@ -5,6 +5,7 @@ export interface UserProfile {
   uid: string;
   fullName: string;
   email: string;
+  password?: string;
   phone?: string;
   role: UserRole;
   department?: string;

@@ -568,6 +568,20 @@ export const MovementsPage: React.FC<MovementsPageProps> = ({
 
       {/* Movements Table */}
       <div id="printable-movements-table" className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden shadow-xs">
+        {/* Printable Header Banner */}
+        <div className="p-4 bg-slate-50 text-slate-900 border-b border-slate-300 flex justify-between items-center">
+          <div>
+            <h2 className="text-base font-black leading-tight text-slate-900">سجل حركات المستودع (التوريد والصرف)</h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              عدد الحركات المسجلة: {filteredMovements.length} | تاريخ التقرير: {new Date().toLocaleDateString('ar-EG')}
+            </p>
+          </div>
+          <div className="text-left font-mono">
+            <span className="text-xs font-bold text-indigo-700 block">{settings.companyName}</span>
+            <span className="text-[10px] text-slate-500">إدارة المخزون والعمليات</span>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-right">
             <thead>

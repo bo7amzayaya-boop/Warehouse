@@ -320,6 +320,9 @@ export async function exportToPDF(
       return;
     }
 
+    const isLandscape = options.landscape || false;
+    const targetWidthPx = isLandscape ? 1060 : 794;
+
     // Capture element into canvas with high scale for clear Arabic text rendering
     const canvas = await html2canvas(element, {
       scale: 2, // High resolution output
@@ -337,7 +340,29 @@ export async function exportToPDF(
         const darkElements = Array.from(clonedDoc.querySelectorAll('.dark'));
         darkElements.forEach((el) => el.classList.remove('dark'));
 
-        // 2. Inject print CSS override block into head
+        // 2. Sanitize all elements: convert dark backgrounds and gradients to clean white/light backgrounds
+        const allElements = Array.from(clonedDoc.querySelectorAll('*'));
+        allElements.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          if (htmlEl.className && typeof htmlEl.className === 'string') {
+            const cls = htmlEl.className;
+            if (
+              cls.includes('bg-slate-900') ||
+              cls.includes('bg-slate-800') ||
+              cls.includes('bg-slate-950') ||
+              cls.includes('bg-slate-700') ||
+              cls.includes('bg-indigo-950') ||
+              cls.includes('bg-black') ||
+              cls.includes('bg-gradient')
+            ) {
+              htmlEl.style.backgroundColor = '#ffffff';
+              htmlEl.style.backgroundImage = 'none';
+              htmlEl.style.color = '#000000';
+            }
+          }
+        });
+
+        // 3. Inject print CSS override block into head for absolute PDF layout and color consistency
         const printStyle = clonedDoc.createElement('style');
         printStyle.textContent = `
           * {
@@ -346,29 +371,133 @@ export async function exportToPDF(
             box-shadow: none !important;
             text-shadow: none !important;
           }
-          html, body {
+          html, body, #root, div, section, article, header, footer {
             background-color: #ffffff !important;
-            color: #0f172a !important;
+            color: #000000 !important;
             font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
+            direction: rtl !important;
           }
-          #printable-requisition-document,
-          #printable-saved-req-doc,
-          #printable-report-content,
-          #printable-materials-container,
-          #printable-movements-table,
-          #printable-receipt-card,
-          #printable-barcode-card {
+          .no-print {
+            display: none !important;
+          }
+          /* Force white background and dark text on any container with dark classes */
+          [class*="bg-slate-9"],
+          [class*="bg-slate-8"],
+          [class*="bg-slate-7"],
+          [class*="bg-indigo-9"],
+          [class*="bg-gradient"],
+          [class*="bg-black"] {
             background-color: #ffffff !important;
-            color: #0f172a !important;
-            width: 794px !important; /* Standard A4 width at 96 DPI */
-            margin: 0 auto !important;
-            padding: 32px !important;
-            box-sizing: border-box !important;
+            background-image: none !important;
+            color: #000000 !important;
+            border-color: #cbd5e1 !important;
           }
-          /* Print tables default style */
+          /* Force text to dark/black */
+          h1, h2, h3, h4, h5, h6, p, span, div, strong, b, label {
+            color: #000000 !important;
+          }
+          /* Table styling: strict white background and crisp dark text */
+          .overflow-x-auto, .overflow-hidden, .overflow-auto, div[class*="overflow"] {
+            overflow: visible !important;
+            max-width: none !important;
+            width: 100% !important;
+          }
           table {
             width: 100% !important;
             border-collapse: collapse !important;
+            margin-top: 10px !important;
+            margin-bottom: 10px !important;
+            table-layout: auto !important;
+            background-color: #ffffff !important;
+          }
+          thead {
+            background-color: #f1f5f9 !important;
+          }
+          th {
+            background-color: #f1f5f9 !important;
+            color: #000000 !important;
+            font-weight: 800 !important;
+            border: 1px solid #cbd5e1 !important;
+            padding: 8px 10px !important;
+            text-align: right !important;
+            font-size: 11px !important;
+          }
+          tbody {
+            background-color: #ffffff !important;
+          }
+          td {
+            border: 1px solid #e2e8f0 !important;
+            padding: 7px 10px !important;
+            color: #000000 !important;
+            font-size: 11px !important;
+            vertical-align: middle !important;
+            background-color: #ffffff !important;
+          }
+          tr:nth-child(even) td {
+            background-color: #f8fafc !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          /* Status badge pills high contrast */
+          .bg-emerald-100, [class*="bg-emerald"] {
+            background-color: #dcfce7 !important;
+            color: #14532d !important;
+            border: 1px solid #86efac !important;
+          }
+          .bg-rose-100, [class*="bg-rose"], .bg-red-100, [class*="bg-red"] {
+            background-color: #fee2e2 !important;
+            color: #7f1d1d !important;
+            border: 1px solid #fca5a5 !important;
+          }
+          .bg-amber-100, [class*="bg-amber"], .bg-yellow-100, [class*="bg-yellow"] {
+            background-color: #fef3c7 !important;
+            color: #78350f !important;
+            border: 1px solid #fde047 !important;
+          }
+          .bg-indigo-100, [class*="bg-indigo"] {
+            background-color: #e0e7ff !important;
+            color: #312e81 !important;
+            border: 1px solid #a5b4fc !important;
+          }
+          #printable-requisition-document,
+          #printable-saved-req-doc {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            width: 794px !important;
+            margin: 0 auto !important;
+            padding: 28px !important;
+            box-sizing: border-box !important;
+          }
+          #printable-report-content,
+          #printable-materials-container,
+          #printable-movements-table {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            width: ${targetWidthPx}px !important;
+            margin: 0 auto !important;
+            padding: 24px !important;
+            box-sizing: border-box !important;
+          }
+          #printable-receipt-card {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            width: 680px !important;
+            margin: 0 auto !important;
+            padding: 24px !important;
+            box-sizing: border-box !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 12px !important;
+          }
+          #printable-barcode-card {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            width: 320px !important;
+            margin: 0 auto !important;
+            padding: 16px !important;
+            box-sizing: border-box !important;
+            border: 2px solid #000000 !important;
           }
         `;
         clonedDoc.head.appendChild(printStyle);
@@ -384,12 +513,11 @@ export async function exportToPDF(
         
         if (clonedEl) {
           clonedEl.style.backgroundColor = '#ffffff';
-          clonedEl.style.color = '#0f172a';
+          clonedEl.style.color = '#000000';
         }
       },
     });
 
-    const isLandscape = options.landscape || false;
     const pdf = new jsPDF({
       orientation: isLandscape ? 'landscape' : 'portrait',
       unit: 'mm',

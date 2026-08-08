@@ -67,11 +67,13 @@ export const UserManagementPage: React.FC = () => {
     setSubmitting(true);
     try {
       if (editingUser) {
-        await updateUserProfile(editingUser.uid, {
+        const updatePayload: any = {
           fullName,
           role,
           phone,
-        });
+        };
+        if (password) updatePayload.password = password;
+        await updateUserProfile(editingUser.uid, updatePayload);
         showSuccess('تم تحديث بيانات وصلاحية المستخدم بنجاح');
       } else {
         if (!password || password.length < 6) {
@@ -84,7 +86,8 @@ export const UserManagementPage: React.FC = () => {
           email,
           fullName,
           role,
-          phone
+          phone,
+          password
         );
         showSuccess('تم إنشاء حساب المستخدم الجديد بنجاح');
       }

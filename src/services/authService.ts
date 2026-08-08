@@ -6,6 +6,8 @@ import {
   updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import {
   doc,
   getDoc,
@@ -18,9 +20,15 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType, cleanUndefinedData } from '../firebase/config';
+import { auth, db, firebaseConfig, handleFirestoreError, OperationType, cleanUndefinedData } from '../firebase/config';
 import { UserProfile, UserRole, UserStatus } from '../types';
 import { createAuditLog } from './auditService';
+
+function getSecondaryAuth() {
+  const existingApps = getApps();
+  const secondaryApp = existingApps.find(a => a.name === 'SecondaryAuthApp') || initializeApp(firebaseConfig, 'SecondaryAuthApp');
+  return getAuth(secondaryApp);
+}
 
 // Fetch current user document
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
@@ -65,46 +73,101 @@ export function subscribeUsers(callback: (users: UserProfile[]) => void): () => 
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'users'));
 }
 
-// Log in user
+// Log in user (supports both Firebase Auth and Firestore user records)
 export async function loginUser(email: string, pass: string): Promise<UserProfile> {
-  const cred = await signInWithEmailAndPassword(auth, email, pass);
-  const uid = cred.user.uid;
-  let profile = await getUserProfile(uid);
-
+  const normEmail = email.trim().toLowerCase();
   const now = new Date().toISOString();
 
-  if (!profile) {
-    // Check if this is the super admin email or bootstrapping initial user
-    const role: UserRole = email.toLowerCase().includes('admin') || email.toLowerCase() === 'bo7amzayaya@gmail.com' ? 'super_admin' : 'employee';
-    profile = {
-      uid,
-      fullName: cred.user.displayName || email.split('@')[0] || 'مستخدم النظام',
-      email,
-      role,
-      department: 'الإدارة العامة',
-      status: 'active',
-      createdAt: now,
-      lastLogin: now,
-    };
-    await setDoc(doc(db, 'users', uid), cleanUndefinedData(profile));
-  } else {
-    if (profile.status === 'disabled') {
-      await signOut(auth);
+  // 1. Try Firebase Auth
+  try {
+    const cred = await signInWithEmailAndPassword(auth, normEmail, pass);
+    const uid = cred.user.uid;
+    let profile = await getUserProfile(uid);
+
+    if (!profile) {
+      const role: UserRole = normEmail.includes('admin') || normEmail === 'bo7amzayaya@gmail.com' ? 'super_admin' : 'employee';
+      profile = {
+        uid,
+        fullName: cred.user.displayName || normEmail.split('@')[0] || 'مستخدم النظام',
+        email: normEmail,
+        password: pass,
+        role,
+        department: 'الإدارة العامة',
+        status: 'active',
+        isDisabled: false,
+        createdAt: now,
+        lastLogin: now,
+      };
+      await setDoc(doc(db, 'users', uid), cleanUndefinedData(profile));
+    } else {
+      if (profile.status === 'disabled' || profile.isDisabled) {
+        await signOut(auth);
+        throw new Error('حسابك معطل حالياً. يرجى التواصل مع مدير النظام.');
+      }
+      await updateDoc(doc(db, 'users', uid), cleanUndefinedData({ lastLogin: now, password: pass }));
+    }
+
+    localStorage.removeItem('khayal_custom_user');
+
+    await createAuditLog(
+      profile.uid,
+      profile.fullName,
+      profile.email,
+      profile.role,
+      'تسجيل الدخول',
+      'قام المستخدم بتسجيل الدخول إلى نظام المستودع'
+    );
+
+    return profile;
+  } catch (firebaseErr: any) {
+    console.warn('Firebase Auth login fallback check:', firebaseErr?.code || firebaseErr?.message);
+
+    if (firebaseErr?.message?.includes('حسابك معطل')) {
+      throw firebaseErr;
+    }
+
+    // 2. Check Firestore users collection for admin-created users
+    const q = query(collection(db, 'users'), where('email', '==', normEmail));
+    const snap = await getDocs(q);
+
+    if (snap.empty) {
+      throw new Error('فشل تسجيل الدخول. البريد الإلكتروني غير مسجل بالمنظومة.');
+    }
+
+    const userDoc = snap.docs[0].data() as UserProfile;
+    const docId = snap.docs[0].id;
+
+    if (userDoc.status === 'disabled' || userDoc.isDisabled) {
       throw new Error('حسابك معطل حالياً. يرجى التواصل مع مدير النظام.');
     }
-    await updateDoc(doc(db, 'users', uid), cleanUndefinedData({ lastLogin: now }));
+
+    if (userDoc.password && userDoc.password !== pass) {
+      throw new Error('كلمة المرور غير صحيحة. يرجى التأكد وإعادة المحاولة.');
+    }
+
+    const fullProfile: UserProfile = {
+      ...userDoc,
+      uid: docId,
+      lastLogin: now,
+      isDisabled: false
+    };
+
+    await updateDoc(doc(db, 'users', docId), cleanUndefinedData({ lastLogin: now, password: pass })).catch(() => {});
+
+    localStorage.setItem('khayal_custom_user', JSON.stringify(fullProfile));
+    window.dispatchEvent(new Event('khayal_auth_change'));
+
+    await createAuditLog(
+      fullProfile.uid,
+      fullProfile.fullName,
+      fullProfile.email,
+      fullProfile.role,
+      'تسجيل الدخول',
+      'قام المستخدم بتسجيل الدخول إلى نظام المستودع'
+    ).catch(() => {});
+
+    return fullProfile;
   }
-
-  await createAuditLog(
-    profile.uid,
-    profile.fullName,
-    profile.email,
-    profile.role,
-    'تسجيل الدخول',
-    'قام المستخدم بتسجيل الدخول إلى نظام المستودع'
-  );
-
-  return profile;
 }
 
 // Bootstrap Super Admin profile or Quick Admin Login Helper
@@ -135,9 +198,13 @@ export async function logoutUser(user?: UserProfile): Promise<void> {
       user.role,
       'تسجيل الخروج',
       'قام المستخدم بتسجيل الخروج'
-    );
+    ).catch(() => {});
   }
-  await signOut(auth);
+  localStorage.removeItem('khayal_custom_user');
+  window.dispatchEvent(new Event('khayal_auth_change'));
+  try {
+    await signOut(auth);
+  } catch (e) {}
 }
 
 // Reset Password
@@ -159,25 +226,41 @@ export async function createUserAccount(
   adminUser?: UserProfile
 ): Promise<void> {
   try {
+    const normEmail = data.email.trim().toLowerCase();
+
     // Check if email already registered in firestore
-    const q = query(collection(db, 'users'), where('email', '==', data.email));
+    const q = query(collection(db, 'users'), where('email', '==', normEmail));
     const snap = await getDocs(q);
     if (!snap.empty) {
       throw new Error(`البريد الإلكتروني (${data.email}) مسجل بالفعل بالمنظومة.`);
     }
 
     const now = new Date().toISOString();
-    const tempUid = 'usr_' + Date.now();
+    let tempUid = 'usr_' + Date.now();
+
+    // Secondary Firebase Auth instance creation
+    if (data.password && data.password.length >= 6) {
+      try {
+        const secAuth = getSecondaryAuth();
+        const cred = await createUserWithEmailAndPassword(secAuth, normEmail, data.password);
+        tempUid = cred.user.uid;
+        await signOut(secAuth);
+      } catch (authErr: any) {
+        console.warn('Firebase Auth secondary creation note:', authErr?.message || authErr);
+      }
+    }
 
     const userDoc: UserProfile = {
       uid: tempUid,
-      fullName: data.fullName,
-      email: data.email,
+      fullName: data.fullName.trim(),
+      email: normEmail,
+      password: data.password || '',
       role: data.role,
       department: data.department || 'المستودع',
       phone: data.phone || '',
       notes: data.notes || '',
       status: 'active',
+      isDisabled: false,
       createdAt: now,
       createdBy: adminUser?.fullName || 'النظام',
     };
@@ -191,7 +274,7 @@ export async function createUserAccount(
         adminUser.email,
         adminUser.role,
         'إنشاء مستخدم جديد',
-        `تم إنشاء حساب للمستخدم: ${data.fullName} (${data.email}) بصلاحية ${data.role}`
+        `تم إنشاء حساب للمستخدم: ${data.fullName} (${normEmail}) بصلاحية ${data.role}`
       );
     }
   } catch (err) {
@@ -205,9 +288,10 @@ export async function createUserProfile(
   email: string,
   fullName: string,
   role: UserRole,
-  phone?: string
+  phone?: string,
+  password?: string
 ) {
-  return createUserAccount({ fullName, email, role, phone });
+  return createUserAccount({ fullName, email, role, phone, password });
 }
 
 export async function updateUserAccount(
@@ -284,3 +368,4 @@ export async function deleteUserAccount(
 export async function deleteUserProfile(uid: string) {
   return deleteUserAccount(uid);
 }
+

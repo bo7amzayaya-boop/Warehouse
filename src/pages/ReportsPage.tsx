@@ -184,17 +184,36 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
       </div>
 
       {/* Report Content Panel */}
-      <div id="printable-report-content">
+      <div id="printable-report-content" className="space-y-4">
+        {/* Printable Header Banner */}
+        <div className="p-4 bg-slate-50 text-slate-900 rounded-2xl border border-slate-300 flex justify-between items-center">
+          <div>
+            <h2 className="text-base font-black leading-tight text-slate-900">
+              {reportType === 'inventory_val' && 'تقرير القيمة المالية الإجمالية للمخزون'}
+              {reportType === 'low_stock' && 'تقرير نواقص المخزون وحد الكفاية الأدنى'}
+              {reportType === 'fast_slow' && 'تحليل معدل حركة الأصناف (الأسرع والأبطأ)'}
+              {reportType === 'movements_summary' && 'تقرير حركات التوريد والصرف الشامل'}
+            </h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              تاريخ إصدار التقرير: {new Date().toLocaleDateString('ar-EG')} - {new Date().toLocaleTimeString('ar-EG')}
+            </p>
+          </div>
+          <div className="text-left font-mono">
+            <span className="text-xs font-bold text-indigo-700 block">{settings.companyName}</span>
+            <span className="text-[10px] text-slate-500">التقرير التحليلي الشامل</span>
+          </div>
+        </div>
+
       {reportType === 'inventory_val' && (
         <div className="space-y-4">
-          <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl text-white flex justify-between items-center shadow-lg">
+          <div className="p-5 bg-white text-slate-900 rounded-2xl border border-slate-300 flex justify-between items-center shadow-xs">
             <div>
-              <span className="text-xs text-indigo-300 font-bold block">القيمة المالية الإجمالية الصافية لجميع محتويات المستودع</span>
-              <h3 className="text-3xl font-black mt-1 font-mono text-emerald-400">
+              <span className="text-xs text-indigo-700 font-bold block">القيمة المالية الإجمالية الصافية لجميع محتويات المستودع</span>
+              <h3 className="text-3xl font-black mt-1 font-mono text-emerald-700">
                 {totalValuation.toLocaleString()} {settings.defaultCurrency}
               </h3>
             </div>
-            <div className="text-left text-xs text-indigo-200 font-bold">
+            <div className="text-left text-xs text-slate-600 font-bold">
               <span>إجمالي عدد الأصناف: {materials.length} صنف</span>
             </div>
           </div>

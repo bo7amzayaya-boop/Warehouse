@@ -52,6 +52,11 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
+  // Deduplicate categories by nameAr
+  const uniqueCategories: Category[] = Array.from(
+    new Map<string, Category>(categories.map((c) => [(c.nameAr || '').trim().toLowerCase(), c])).values()
+  );
+
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
@@ -267,8 +272,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2.5 px-3 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
           >
-            <option value="ALL">جميع الأقسام ({categories.length})</option>
-            {categories.map(c => (
+            <option value="ALL">جميع الأقسام ({uniqueCategories.length})</option>
+            {uniqueCategories.map(c => (
               <option key={c.id} value={c.nameAr}>{c.nameAr}</option>
             ))}
           </select>
@@ -308,6 +313,20 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
 
       {/* Grid or Table Display */}
       <div id="printable-materials-container">
+        {/* Printable Header Banner */}
+        <div className="mb-4 p-4 bg-slate-50 text-slate-900 rounded-2xl border border-slate-300 flex justify-between items-center">
+          <div>
+            <h2 className="text-base font-black leading-tight text-slate-900">قائمة أصناف ومواد المستودع</h2>
+            <p className="text-xs text-slate-600 mt-0.5">
+              إجمالي عدد الأصناف: {filteredMaterials.length} صنف | تاريخ التقرير: {new Date().toLocaleDateString('ar-EG')}
+            </p>
+          </div>
+          <div className="text-left font-mono">
+            <span className="text-xs font-bold text-indigo-700 block">{settings.companyName}</span>
+            <span className="text-[10px] text-slate-500">إدارة خامات المستودع</span>
+          </div>
+        </div>
+
       {filteredMaterials.length === 0 ? (
         <div className="p-12 text-center bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
           <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -434,7 +453,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                   <th className="py-3.5 px-4">سعر الشراء / متوسط التكلفة</th>
                   <th className="py-3.5 px-4">الموقع بالمستودع</th>
                   <th className="py-3.5 px-4">الحالة</th>
-                  <th className="py-3.5 px-4 text-center">خيارات</th>
+                  <th className="py-3.5 px-4 text-center no-print">خيارات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 font-medium">
@@ -468,7 +487,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                         {mat.status === 'in_stock' ? 'متوفر' : mat.status === 'low_stock' ? 'منخفض' : 'نفد'}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 no-print">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => setBarcodeMaterial(mat)}
@@ -561,7 +580,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({
                 }}
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100"
               >
-                {categories.map(c => (
+                {uniqueCategories.map(c => (
                   <option key={c.id} value={c.id}>{c.nameAr}</option>
                 ))}
               </select>

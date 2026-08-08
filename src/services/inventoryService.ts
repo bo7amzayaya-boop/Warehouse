@@ -72,152 +72,108 @@ export const DEFAULT_SETTINGS: SystemSettings = {
 // Auto Seed if Empty
 export async function seedInitialDataIfEmpty(): Promise<void> {
   try {
+    const setDocRef = doc(db, 'settings', 'global');
+    const setSnap = await getDoc(setDocRef);
+    const settingsData = setSnap.data() || {};
+
+    if (!setSnap.exists()) {
+      await setDoc(setDocRef, { ...DEFAULT_SETTINGS, updatedAt: new Date().toISOString() });
+    }
+
+    // Do not seed if user explicitly requested clean/empty database
+    if (settingsData.disableAutoSeed) {
+      return;
+    }
+
     const catSnap = await getDocs(collection(db, 'categories'));
     if (catSnap.empty) {
-      console.log('Seeding initial categories...');
+      console.log('Seeding initial unique categories...');
+      const seenNames = new Set<string>();
       for (const cat of DEFAULT_CATEGORIES) {
-        await addDoc(collection(db, 'categories'), { ...cat, createdAt: new Date().toISOString() });
+        const norm = cat.nameAr.trim().toLowerCase();
+        if (!seenNames.has(norm)) {
+          seenNames.add(norm);
+          await addDoc(collection(db, 'categories'), { ...cat, nameAr: cat.nameAr.trim(), createdAt: new Date().toISOString() });
+        }
       }
+    } else {
+      // Cleanup any duplicate categories in background
+      cleanDuplicateCategories().catch(() => {});
     }
 
     const unitSnap = await getDocs(collection(db, 'units'));
     if (unitSnap.empty) {
       console.log('Seeding initial units...');
+      const seenUnits = new Set<string>();
       for (const u of DEFAULT_UNITS) {
-        await addDoc(collection(db, 'units'), u);
-      }
-    }
-
-    const setDocRef = doc(db, 'settings', 'global');
-    const setSnap = await getDoc(setDocRef);
-    if (!setSnap.exists()) {
-      await setDoc(setDocRef, { ...DEFAULT_SETTINGS, updatedAt: new Date().toISOString() });
-    }
-
-    // Seed sample materials if empty
-    const matSnap = await getDocs(collection(db, 'materials'));
-    if (matSnap.empty) {
-      console.log('Seeding sample printing materials...');
-      const sampleMaterials = [
-        {
-          code: 'MAT-1001',
-          barcode: '6291001001',
-          nameAr: 'رول بنر 440 جرام - 3.20م × 50م',
-          nameEn: 'Banner Roll 440g 3.20m x 50m',
-          categoryId: 'banner',
-          categoryName: 'بنر',
-          unit: 'رول',
-          currentQuantity: 25,
-          minQuantity: 5,
-          maxQuantity: 50,
-          avgCost: 350,
-          purchasePrice: 380,
-          supplierName: 'مصنع الشرق للرولات',
-          location: 'مستودع أ - الرف 1',
-          rackNumber: 'A1-02',
-          description: 'بنر عالي الجودة للطباعة الخارجية الخارجية',
-          status: 'in_stock',
-          isFavorite: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          code: 'MAT-1002',
-          barcode: '6291001002',
-          nameAr: 'رول استيكر أبيض لامع - 1.27م × 50م',
-          nameEn: 'White Glossy Vinyl 1.27m x 50m',
-          categoryId: 'sticker',
-          categoryName: 'استيكر',
-          unit: 'رول',
-          currentQuantity: 18,
-          minQuantity: 4,
-          maxQuantity: 40,
-          avgCost: 220,
-          purchasePrice: 240,
-          supplierName: 'شركة الخليج لمواد الإعلان',
-          location: 'مستودع أ - الرف 2',
-          rackNumber: 'A2-05',
-          description: 'فينيل لاصق عالي الالتصاق للسيارات والواجهات',
-          status: 'in_stock',
-          isFavorite: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          code: 'MAT-1003',
-          barcode: '6291001003',
-          nameAr: 'حبر سلفنت أسود (Solvent Black Ink) - 5 لتر',
-          nameEn: 'Solvent Black Ink 5L',
-          categoryId: 'ink',
-          categoryName: 'حبر',
-          unit: 'عبوة',
-          currentQuantity: 3,
-          minQuantity: 5,
-          maxQuantity: 20,
-          avgCost: 180,
-          purchasePrice: 200,
-          supplierName: 'تكنولوجيا الطباعة المتقدمة',
-          location: 'مستودع الأحبار - خزانة 1',
-          rackNumber: 'INK-01',
-          description: 'حبر سلفنت ياباني أصلي لرؤوس كونيكا وسيزار',
-          status: 'low_stock',
-          isFavorite: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          code: 'MAT-1004',
-          barcode: '6291001004',
-          nameAr: 'ألواح أكريليك شفاف 3 مم - 1.22م × 2.44م',
-          nameEn: 'Clear Acrylic Sheet 3mm',
-          categoryId: 'acrylic',
-          categoryName: 'أكريليك',
-          unit: 'لوح',
-          currentQuantity: 42,
-          minQuantity: 10,
-          maxQuantity: 100,
-          avgCost: 110,
-          purchasePrice: 125,
-          supplierName: 'مجموعة البلاستيك العربية',
-          location: 'مستودع ب - القسم الصلب',
-          rackNumber: 'B1-01',
-          description: 'ألواح أكريليك كاست شفافة للقص بالليزر',
-          status: 'in_stock',
-          isFavorite: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          code: 'MAT-1005',
-          barcode: '6291001005',
-          nameAr: 'ألواح فوم بورد 5 مم - 1.22م × 2.44م',
-          nameEn: 'Foam Board 5mm',
-          categoryId: 'foam',
-          categoryName: 'فوم',
-          unit: 'لوح',
-          currentQuantity: 0,
-          minQuantity: 15,
-          maxQuantity: 80,
-          avgCost: 28,
-          purchasePrice: 32,
-          supplierName: 'مجموعة البلاستيك العربية',
-          location: 'مستودع ب - الرف 3',
-          rackNumber: 'B3-10',
-          description: 'فوم بورد خفيف للمعروضات الداخلية والبوسترات',
-          status: 'out_of_stock',
-          isFavorite: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+        const norm = u.nameAr.trim().toLowerCase();
+        if (!seenUnits.has(norm)) {
+          seenUnits.add(norm);
+          await addDoc(collection(db, 'units'), u);
         }
-      ];
-
-      for (const m of sampleMaterials) {
-        await addDoc(collection(db, 'materials'), m);
       }
     }
   } catch (e) {
     console.warn('Auto-seed skipped or completed:', e);
   }
+}
+
+// Clean duplicate categories from Firestore database
+export async function cleanDuplicateCategories(): Promise<number> {
+  try {
+    const snap = await getDocs(collection(db, 'categories'));
+    const seen = new Map<string, string>(); // nameAr -> doc.id
+    let deletedCount = 0;
+
+    for (const d of snap.docs) {
+      const data = d.data();
+      const norm = (data.nameAr || '').trim().toLowerCase();
+      if (!norm) continue;
+
+      if (seen.has(norm)) {
+        await deleteDoc(doc(db, 'categories', d.id)).catch(() => {});
+        deletedCount++;
+      } else {
+        seen.set(norm, d.id);
+      }
+    }
+    return deletedCount;
+  } catch (err) {
+    console.warn('Failed to clean duplicate categories:', err);
+    return 0;
+  }
+}
+
+// Clear all database entries (materials, movements, requisitions, projects, suppliers, customers, etc.)
+export async function clearAllDatabaseEntries(includeCategoriesAndUnits: boolean = true): Promise<void> {
+  const collectionsToWipe = [
+    'materials',
+    'movements',
+    'requisitions',
+    'projects',
+    'suppliers',
+    'customers',
+    'notifications',
+    'audit_logs'
+  ];
+
+  if (includeCategoriesAndUnits) {
+    collectionsToWipe.push('categories', 'units');
+  }
+
+  for (const colName of collectionsToWipe) {
+    try {
+      const snap = await getDocs(collection(db, colName));
+      const deletePromises = snap.docs.map((d) => deleteDoc(doc(db, colName, d.id)).catch(() => {}));
+      await Promise.all(deletePromises);
+    } catch (e) {
+      console.warn(`Error clearing collection ${colName}:`, e);
+    }
+  }
+
+  // Set disableAutoSeed flag in settings so auto-seed won't inject sample materials again
+  const setDocRef = doc(db, 'settings', 'global');
+  await setDoc(setDocRef, { disableAutoSeed: true, databaseClearedAt: new Date().toISOString() }, { merge: true });
 }
 
 // Subscribe to Materials
@@ -232,14 +188,35 @@ export function subscribeMaterials(callback: (materials: Material[]) => void): (
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'materials'));
 }
 
-// Subscribe to Categories
+// Subscribe to Categories (with real-time deduplication)
 export function subscribeCategories(callback: (categories: Category[]) => void): () => void {
   const q = query(collection(db, 'categories'), orderBy('nameAr', 'asc'));
   return onSnapshot(q, (snapshot) => {
-    const list: Category[] = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Category));
+    const list: Category[] = [];
+    const seenNames = new Set<string>();
+    const duplicateDocIds: string[] = [];
+
+    snapshot.docs.forEach((docSnap) => {
+      const data = docSnap.data() as Category;
+      const normalizedName = (data.nameAr || '').trim().toLowerCase();
+
+      if (normalizedName) {
+        if (seenNames.has(normalizedName)) {
+          duplicateDocIds.push(docSnap.id);
+        } else {
+          seenNames.add(normalizedName);
+          list.push({ id: docSnap.id, ...data });
+        }
+      }
+    });
+
+    // Asynchronously delete duplicate category documents in background
+    if (duplicateDocIds.length > 0) {
+      duplicateDocIds.forEach((dupId) => {
+        deleteDoc(doc(db, 'categories', dupId)).catch(() => {});
+      });
+    }
+
     callback(list);
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'categories'));
 }
@@ -768,7 +745,19 @@ export async function transferLocation(
 
 // Category CRUD
 export async function addCategory(category: Omit<Category, 'id'>): Promise<void> {
-  await addDoc(collection(db, 'categories'), cleanUndefinedData({ ...category, createdAt: new Date().toISOString() }));
+  const norm = (category.nameAr || '').trim().toLowerCase();
+  if (!norm) return;
+
+  const catSnap = await getDocs(collection(db, 'categories'));
+  const exists = catSnap.docs.some((d) => (d.data().nameAr || '').trim().toLowerCase() === norm);
+  if (exists) {
+    throw new Error('هذا القسم أو التصنيف موجود بالفعل');
+  }
+
+  await addDoc(
+    collection(db, 'categories'),
+    cleanUndefinedData({ ...category, nameAr: category.nameAr.trim(), createdAt: new Date().toISOString() })
+  );
 }
 
 export async function deleteCategory(id: string): Promise<void> {

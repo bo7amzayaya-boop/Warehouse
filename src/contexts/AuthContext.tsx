@@ -26,9 +26,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const checkLocalCustomUser = async () => {
+    const stored = localStorage.getItem('khayal_custom_user');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as UserProfile;
+        const fresh = await getUserProfile(parsed.uid);
+        if (fresh && fresh.status !== 'disabled' && !fresh.isDisabled) {
+          setCurrentUser(fresh);
+          setLoading(false);
+          return true;
+        } else {
+          localStorage.removeItem('khayal_custom_user');
+        }
+      } catch (e) {
+        localStorage.removeItem('khayal_custom_user');
+      }
+    }
+    return false;
+  };
+
   useEffect(() => {
     // Seed initial categories, units, sample materials if empty
     seedInitialDataIfEmpty();
+
+    const handleAuthChangeEvent = async () => {
+      if (!auth.currentUser) {
+        const found = await checkLocalCustomUser();
+        if (!found) setCurrentUser(null);
+      }
+    };
+
+    window.addEventListener('khayal_auth_change', handleAuthChangeEvent);
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFbUser(user);
@@ -38,24 +67,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!profile) {
             profile = await createInitialSuperAdminProfile(user);
           }
-          setCurrentUser(profile);
+          if (profile.status === 'disabled' || profile.isDisabled) {
+            await logoutUser();
+            setCurrentUser(null);
+          } else {
+            setCurrentUser(profile);
+            localStorage.removeItem('khayal_custom_user');
+          }
         } catch (e) {
           console.error('Failed to load user profile:', e);
           setCurrentUser(null);
         }
       } else {
-        setCurrentUser(null);
+        const found = await checkLocalCustomUser();
+        if (!found) {
+          setCurrentUser(null);
+        }
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      window.removeEventListener('khayal_auth_change', handleAuthChangeEvent);
+    };
   }, []);
 
   const logout = async () => {
     await logoutUser(currentUser || undefined);
+    localStorage.removeItem('khayal_custom_user');
     setCurrentUser(null);
     setFbUser(null);
+    window.dispatchEvent(new Event('khayal_auth_change'));
   };
 
   const role: UserRole = currentUser?.role || 'viewer';
